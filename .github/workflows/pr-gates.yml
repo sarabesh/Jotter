@@ -1,0 +1,80 @@
+# Basic CI for jotter. Runs on every PR to main (and on main itself, so main stays green).
+# Each job shows up as its own check on the PR; branch protection will require them.
+# Next iteration adds security gates: gitleaks, semgrep, trivy, SBOM.
+name: pr-gates
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch: # "Run workflow" button in the Actions tab
+
+permissions:
+  contents: read # read-only token; no job here needs to write
+
+concurrency:
+  # a new push to the same PR cancels the previous, now outdated, run
+  group: pr-gates-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: lint (ruff)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4 # TODO: pin actions by commit SHA
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --locked # fails if uv.lock is out of date with pyproject.toml
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+
+  types:
+    name: types (mypy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run mypy
+
+  test:
+    name: test (pytest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run pytest --cov=jotter --cov-report=term-missing
+
+  docker:
+    name: docker (build + smoke test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t jotter:ci .
+      - name: Start container
+        run: docker run -d --name jotter -p 8000:8000 jotter:ci
+      - name: Home page responds
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8000/ | grep -q "Your ideas"; then
+              echo "jotter is up"; exit 0
+            fi
+            sleep 1
+          done
+          echo "jotter did not start in time"; docker logs jotter; exit 1
+      - name: Container logs
+        if: always()
+        run: docker logs jotter || true

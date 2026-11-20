@@ -24,6 +24,16 @@ Open http://localhost:8000.
 uv run pytest && uv run ruff check . && uv run ruff format --check . && uv run mypy
 ```
 
+## CI
+[`.github/workflows/pr-gates.yml`](.github/workflows/pr-gates.yml) runs on every PR to `main` and on `main` itself. Four parallel checks:
+
+| Check | What it runs |
+|---|---|
+| `lint (ruff)` | `uv sync --locked`, `ruff check`, `ruff format --check` |
+| `types (mypy)` | `mypy` (strict) |
+| `test (pytest)` | `pytest` with coverage report |
+| `docker (build + smoke test)` | builds the image, starts it, checks the home page loads |
+
 ## Docker
 ```bash
 docker build -t jotter .
