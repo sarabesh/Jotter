@@ -1,0 +1,14 @@
+# Code owners: their approval is required on PRs that touch these paths
+# (the "Require review from Code Owners" rule in the protect-main ruleset).
+# Later rules override earlier ones for the same file.
+
+# Everything is owned by the maintainer
+*                  @sarabesh
+
+# Extra-sensitive: CI, acceptance tests, tool config.
+# The coding agent must never change these without the maintainer's approval.
+/.github/          @sarabesh
+/tests/acceptance/ @sarabesh
+/pyproject.toml    @sarabesh
+/uv.lock           @sarabesh
+/Dockerfile        @sarabesh
