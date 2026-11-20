@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% set editing = idea is not none and idea.id is defined %}
+{% block title %}{{ "Edit idea" if editing else "New idea" }} · Jotter{% endblock %}
+{% block content %}
+  <a class="back" href="{{ '/ideas/%s' % idea.id if editing else '/' }}">&larr; Back</a>
+  <h1 class="page-title">{{ "Edit idea" if editing else "New idea" }}</h1>
+
+  {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+
+  <form class="form" method="post" action="{{ '/ideas/%s/edit' % idea.id if editing else '/new' }}">
+    <label for="title">Idea</label>
+    <input id="title" name="title" type="text" required maxlength="200"
+           placeholder="What's the idea?" value="{{ idea.title if idea else '' }}" autofocus>
+
+    <label for="body">Details <span class="muted">(optional)</span></label>
+    <textarea id="body" name="body" rows="10"
+              placeholder="Why it matters, how it could work, first steps…">{{ idea.body if idea else '' }}</textarea>
+
+    <label for="tags">Tags <span class="muted">(comma separated)</span></label>
+    <input id="tags" name="tags" type="text" placeholder="app, side-project"
+           value="{{ idea.tags | join(', ') if idea else '' }}">
+
+    <div class="actions">
+      <button class="btn btn-primary" type="submit">{{ "Save changes" if editing else "Save idea" }}</button>
+      <a class="btn" href="{{ '/ideas/%s' % idea.id if editing else '/' }}">Cancel</a>
+    </div>
+  </form>
+{% endblock %}

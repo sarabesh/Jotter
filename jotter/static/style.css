@@ -1,0 +1,159 @@
+:root {
+  --bg: #f7f5f0;
+  --surface: #ffffff;
+  --text: #2b2a27;
+  --muted: #7a776f;
+  --border: #e6e2d8;
+  --accent: #3f6b5a;
+  --accent-text: #ffffff;
+  --danger: #b4443a;
+  --tag-bg: #ebe7dc;
+  --radius: 10px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1c1c1a;
+    --surface: #262624;
+    --text: #ece9e2;
+    --muted: #a19e95;
+    --border: #3a3936;
+    --accent: #7fb39c;
+    --accent-text: #14211b;
+    --danger: #e0786d;
+    --tag-bg: #34332f;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+a { color: inherit; }
+
+.wrap { max-width: 720px; margin: 0 auto; padding: 0 20px; }
+
+/* top bar */
+.topbar { background: var(--surface); border-bottom: 1px solid var(--border); }
+.topbar-inner { display: flex; align-items: center; justify-content: space-between; height: 60px; }
+.brand {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 22px;
+  font-weight: 600;
+  text-decoration: none;
+  letter-spacing: 0.5px;
+}
+
+main { padding-top: 32px; padding-bottom: 64px; }
+
+.page-title, .idea-title {
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+.page-title { font-size: 28px; }
+.idea-title { font-size: 32px; line-height: 1.25; }
+
+.muted { color: var(--muted); }
+
+/* buttons */
+.btn {
+  display: inline-block;
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+  text-decoration: none;
+  cursor: pointer;
+}
+.btn:hover { border-color: var(--muted); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.btn-primary:hover { filter: brightness(1.08); border-color: var(--accent); }
+.btn-danger { color: var(--danger); }
+.btn-danger:hover { border-color: var(--danger); }
+
+/* idea list */
+.idea-list { list-style: none; padding: 0; margin: 20px 0 0; display: grid; gap: 12px; }
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 18px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  text-decoration: none;
+  transition: border-color 0.15s;
+}
+.card:hover { border-color: var(--accent); }
+.card-date { font-size: 13px; color: var(--muted); margin: 0; }
+.card-title { font-size: 18px; font-weight: 600; }
+.card-excerpt { color: var(--muted); }
+
+.tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 0; }
+.tag {
+  font-size: 12px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--tag-bg);
+  color: var(--muted);
+}
+
+/* empty state */
+.empty {
+  text-align: center;
+  padding: 56px 24px;
+  margin-top: 24px;
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
+.empty-title { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
+.empty .btn { margin-top: 12px; }
+
+/* single idea */
+.back { display: inline-block; margin-bottom: 20px; color: var(--muted); text-decoration: none; font-size: 14px; }
+.back:hover { color: var(--text); }
+.idea {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px 32px;
+}
+.idea-body { margin-top: 20px; white-space: pre-wrap; font-size: 17px; line-height: 1.75; }
+
+.actions { display: flex; gap: 10px; align-items: center; margin-top: 20px; }
+.actions form { margin: 0; }
+
+/* form */
+.form { display: flex; flex-direction: column; gap: 6px; margin-top: 16px; }
+.form label { font-weight: 600; font-size: 14px; margin-top: 12px; }
+.form input, .form textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+.form textarea { resize: vertical; line-height: 1.7; }
+.form input:focus, .form textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+.error {
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  margin: 12px 0 0;
+}

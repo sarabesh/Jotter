@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+  <h1 class="page-title">Your ideas</h1>
+
+  {% if ideas %}
+    <p class="muted">{{ ideas | length }} {{ "idea" if ideas | length == 1 else "ideas" }}</p>
+    <ul class="idea-list">
+      {% for i in ideas %}
+        <li>
+          <a class="card" href="/ideas/{{ i.id }}">
+            <span class="card-date">{{ i.created_at | nice_date }}</span>
+            <span class="card-title">{{ i.title }}</span>
+            {% if i.body %}<span class="card-excerpt">{{ i.body | truncate(160) }}</span>{% endif %}
+            {% if i.tags %}
+              <span class="tags">{% for t in i.tags %}<span class="tag">{{ t }}</span>{% endfor %}</span>
+            {% endif %}
+          </a>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <div class="empty">
+      <p class="empty-title">No ideas yet</p>
+      <p class="muted">Capture an idea before it slips away: a side project, a feature, a business, anything.</p>
+      <a class="btn btn-primary" href="/new">Add your first idea</a>
+    </div>
+  {% endif %}
+{% endblock %}
