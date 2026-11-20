@@ -1,5 +1,11 @@
 FROM python:3.12-slim
 
+# Apply Debian security fixes released after the base image was built
+# (e.g. zlib1g CVE-2026-85091, caught by the trivy image scan). Clean the apt lists to keep the image small.
+RUN apt-get update \
+ && apt-get upgrade -y --no-install-recommends \
+ && rm -rf /var/lib/apt/lists/*
+
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never \
     PYTHONUNBUFFERED=1 JOTTER_DB=/data/jotter.db

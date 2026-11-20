@@ -25,8 +25,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.4.0
         with:
           enable-cache: true
       - run: uv sync --locked # fails if uv.lock is out of date with pyproject.toml
@@ -38,8 +38,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.4.0
         with:
           enable-cache: true
       - run: uv sync --locked
@@ -50,8 +50,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.4.0
         with:
           enable-cache: true
       - run: uv sync --locked
@@ -62,7 +62,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build image
         run: docker build -t jotter:ci .
       - name: Start container
@@ -87,10 +87,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # full history: scan every commit in the PR, not just the last one
-      - uses: gitleaks/gitleaks-action@v2 # free for personal accounts; orgs need a licence key
+      - uses: gitleaks/gitleaks-action@v3 # free for personal accounts; orgs need a licence key
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -100,7 +100,7 @@ jobs:
     timeout-minutes: 10
     container: semgrep/semgrep # official image; semgrep isn't supported on Windows, so CI is where it runs
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # p/python: Python security + correctness rules (SQL injection, unsafe deserialisation, …)
       - run: semgrep scan --config p/python --error --metrics=off
 
@@ -109,8 +109,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.4.0
         with:
           enable-cache: true
       - name: Known vulnerabilities in locked dependencies
@@ -128,9 +128,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build image
         run: docker build -t jotter:ci .
+      # SBOM first: it never fails on CVEs, so we always get the package list,
+      # even (especially) when the scan below fails.
+      - name: Generate SBOM (CycloneDX)
+        uses: aquasecurity/trivy-action@v0.36.0 # installs trivy for this and the next step
+        with:
+          image-ref: jotter:ci
+          format: cyclonedx
+          output: sbom.cdx.json
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v7
+        with:
+          name: sbom
+          path: sbom.cdx.json
       - name: Scan image for HIGH/CRITICAL vulnerabilities (OS packages + Python libraries)
         uses: aquasecurity/trivy-action@v0.36.0
         with:
@@ -138,15 +151,4 @@ jobs:
           severity: HIGH,CRITICAL
           ignore-unfixed: true # only fail on problems that have a fix available
           exit-code: "1"
-      - name: Generate SBOM (CycloneDX)
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: jotter:ci
-          format: cyclonedx
-          output: sbom.cdx.json
-          skip-setup-trivy: true # trivy is already installed by the step above
-      - name: Upload SBOM
-        uses: actions/upload-artifact@v4
-        with:
-          name: sbom
-          path: sbom.cdx.json
+          skip-setup-trivy: true # trivy is already installed by the SBOM step
