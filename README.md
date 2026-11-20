@@ -25,14 +25,18 @@ uv run pytest && uv run ruff check . && uv run ruff format --check . && uv run m
 ```
 
 ## CI
-[`.github/workflows/pr-gates.yml`](.github/workflows/pr-gates.yml) runs on every PR to `main` and on `main` itself. Four parallel checks:
+[`.github/workflows/pr-gates.yml`](.github/workflows/pr-gates.yml) runs on every PR to `main` and on `main` itself. All checks run in parallel and are required to merge:
 
 | Check | What it runs |
 |---|---|
-| `lint (ruff)` | `uv sync --locked`, `ruff check`, `ruff format --check` |
+| `lint (ruff)` | `uv sync --locked`, `ruff check` (incl. bandit security rules), `ruff format --check` |
 | `types (mypy)` | `mypy` (strict) |
-| `test (pytest)` | `pytest` with coverage report |
+| `test (pytest)` | `pytest`, fails below 90% coverage |
 | `docker (build + smoke test)` | builds the image, starts it, checks the home page loads |
+| `secrets (gitleaks)` | scans every commit in the PR for leaked keys/passwords |
+| `sast (semgrep)` | static security analysis (`p/python` rules) |
+| `deps (pip-audit + licences)` | known CVEs in locked dependencies; runtime dependency licences (no GPL family) |
+| `image scan (trivy + SBOM)` | HIGH/CRITICAL fixable CVEs in the Docker image; CycloneDX SBOM uploaded as an artifact |
 
 ## Docker
 ```bash

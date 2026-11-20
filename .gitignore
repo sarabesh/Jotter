@@ -6,6 +6,8 @@ __pycache__/
 .coverage
 coverage.xml
 htmlcov/
+audit-requirements.txt
+sbom.cdx.json
 .mypy_cache/
 .ruff_cache/
 *.db
