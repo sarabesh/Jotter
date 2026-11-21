@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 
 from jotter import __version__
 from jotter.db import IdeaStore
+from jotter.health import build_health_router
 from jotter.web import build_web_router
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -27,5 +28,6 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
     )
 
     app.include_router(build_web_router(store))
+    app.include_router(build_health_router(store))
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
     return app

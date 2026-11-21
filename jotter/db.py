@@ -43,6 +43,15 @@ class IdeaStore:
         finally:
             conn.close()
 
+    def ping(self) -> bool:
+        """True if the database can be opened and queried (used by /health)."""
+        try:
+            with self._conn() as conn:
+                conn.execute("SELECT 1 FROM ideas LIMIT 1").fetchall()
+        except sqlite3.Error:
+            return False
+        return True
+
     def create(self, title: str, body: str, tags: list[str]) -> dict[str, Any]:
         created_at = datetime.now(UTC).isoformat()
         with self._conn() as conn:
