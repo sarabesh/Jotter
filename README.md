@@ -38,6 +38,27 @@ uv run pytest && uv run ruff check . && uv run ruff format --check . && uv run m
 | `deps (pip-audit + licences)` | known CVEs in locked dependencies; runtime dependency licences (no GPL family) |
 | `image scan (trivy + SBOM)` | HIGH/CRITICAL fixable CVEs in the Docker image; CycloneDX SBOM uploaded as an artifact |
 
+## Releases
+[`.github/workflows/release.yml`](.github/workflows/release.yml) runs on every push to `main`:
+
+1. **release-please** reads the [Conventional Commit](https://www.conventionalcommits.org/) messages since the last release and keeps one open **release PR** (version bump in `pyproject.toml`, `uv.lock`, `jotter/__init__.py`, plus `CHANGELOG.md`).
+2. **Merging the release PR** tags `vX.Y.Z`, creates a GitHub Release and publishes the image:
+   build → trivy gate (HIGH/CRITICAL) → push `ghcr.io/sarabesh/jotter:X.Y.Z` → cosign keyless signature → CycloneDX SBOM attestation → verify → SBOM attached to the release.
+
+| PR title (squash merge) | Release |
+|---|---|
+| `fix: …`, `perf: …`, `deps: …` | patch (0.3.0 → 0.3.1) |
+| `feat: …` | minor (0.3.0 → 0.4.0) |
+| `feat!: …` / `BREAKING CHANGE:` | minor while < 1.0 |
+| `ci:`, `docs:`, `chore:`, `test:`, `refactor:` | no release |
+
+Verify a published image:
+```bash
+cosign verify ghcr.io/sarabesh/jotter:<version> \
+  --certificate-identity https://github.com/sarabesh/Jotter/.github/workflows/release.yml@refs/heads/main \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
 ## Docker
 ```bash
 docker build -t jotter .
