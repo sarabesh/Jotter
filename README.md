@@ -9,6 +9,7 @@ A tiny web app for capturing ideas: jot one down, add details and tags, come bac
 | `/new` | Add an idea (title, optional details, comma-separated tags) |
 | `/ideas/{id}` | Read an idea; edit or delete it |
 | `/ideas/{id}/edit` | Edit an idea |
+| `/health` | `{"status": "ok", "version": "…"}` for Docker/k8s health checks; 503 if the database can't be reached |
 
 Server-rendered HTML (FastAPI + Jinja2 templates + one CSS file), plain HTML forms, no JavaScript build, light and dark mode. Data is stored in SQLite.
 
