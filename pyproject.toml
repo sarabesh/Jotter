@@ -1,6 +1,6 @@
 [project]
 name = "jotter"
-version = "0.3.0"
+version = "0.4.0"
 description = "A tiny web app for capturing ideas. Target app for the cda coding agent."
 readme = "README.md"
 requires-python = ">=3.12"
