@@ -1,0 +1,166 @@
+# CD-0: release jotter. Runs on every push to main (i.e. every merged PR).
+#   1. release-please reads the Conventional Commit messages since the last release and keeps
+#      ONE open "release PR" up to date (version bump + CHANGELOG.md). Nothing is published yet.
+#   2. When you merge that release PR, release-please tags vX.Y.Z and creates a GitHub Release,
+#      and the publish job runs: build -> trivy gate -> push to GHCR -> cosign keyless sign
+#      -> SBOM attestation -> verify -> SBOM attached to the GitHub Release.
+# Commits that bump the version: feat: (minor while < 1.0), fix: / perf: / deps: (patch),
+# feat!: or "BREAKING CHANGE:" (minor while < 1.0). ci:/docs:/chore:/test: never release.
+name: release
+
+on:
+  push:
+    branches: [main]
+
+permissions: {} # nothing by default; each job asks for exactly what it needs
+
+concurrency:
+  group: release # never run two releases at once, and never cancel one halfway
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    name: release-please
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # tags, GitHub Releases, the release branch
+      pull-requests: write # open/update the release PR
+      issues: write # create the "autorelease: pending" labels
+    outputs:
+      release_created: ${{ steps.rp.outputs.release_created }}
+      tag_name: ${{ steps.rp.outputs.tag_name }}
+      version: ${{ steps.rp.outputs.version }}
+    steps:
+      - id: rp
+        uses: googleapis/release-please-action@v5
+        with:
+          # Config: release-please-config.json + .release-please-manifest.json (current version).
+          # A PR opened with the default GITHUB_TOKEN does not trigger other workflows, so
+          # pr-gates won't start on the release PR by itself. Either press "Run workflow" on
+          # pr-gates for the release-please branch, or add a fine-grained PAT (or, later, the
+          # cda-bot app token) as the RELEASE_PLEASE_TOKEN secret.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
+
+  publish:
+    name: publish (ghcr + cosign)
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write # upload the SBOM to the GitHub Release
+      packages: write # push to ghcr.io
+      id-token: write # OIDC token for cosign keyless signing (no keys to store or leak)
+    env:
+      IMAGE: ghcr.io/${{ github.repository_owner }}/jotter
+      TAG: ${{ needs.release-please.outputs.tag_name }}
+      VERSION: ${{ needs.release-please.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }} # build exactly the tagged commit
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=semver,pattern={{version}},value=${{ env.TAG }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ env.TAG }}
+            type=sha
+            type=raw,value=latest
+
+      # Build once into the local Docker engine so we can scan it BEFORE anything is pushed.
+      - name: Build image (local)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          load: true
+          tags: jotter:release
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Generate SBOM (CycloneDX)
+        uses: aquasecurity/trivy-action@v0.36.0 # installs trivy for this and the next step
+        with:
+          image-ref: jotter:release
+          format: cyclonedx
+          output: sbom.cdx.json
+
+      - name: Release gate - no HIGH/CRITICAL fixable vulnerabilities
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: jotter:release
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          skip-setup-trivy: true
+
+      # Same inputs + the builder's layer cache = no rebuild, just the push.
+      - id: push
+        name: Push image to GHCR
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - uses: sigstore/cosign-installer@v4.1.3
+
+      # Everything below works on the image DIGEST (immutable), never on a tag (movable).
+      - name: Sign image (cosign keyless)
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: cosign sign --yes "$IMAGE@$DIGEST"
+
+      - name: Attest SBOM to the image
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: cosign attest --yes --type cyclonedx --predicate sbom.cdx.json "$IMAGE@$DIGEST"
+
+      - name: Verify signature and attestation
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+          # The signing certificate names this exact workflow file on main.
+          IDENTITY: https://github.com/${{ github.workflow_ref }}
+        run: |
+          cosign verify "$IMAGE@$DIGEST" \
+            --certificate-identity "$IDENTITY" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com > /dev/null
+          cosign verify-attestation "$IMAGE@$DIGEST" --type cyclonedx \
+            --certificate-identity "$IDENTITY" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com > /dev/null
+          echo "signature + SBOM attestation verified"
+
+      - name: Attach SBOM to the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$TAG" sbom.cdx.json --clobber
+
+      - name: Summary
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+          IDENTITY: https://github.com/${{ github.workflow_ref }}
+        run: |
+          {
+            echo "## jotter $VERSION released"
+            echo ""
+            echo "- Image: \`$IMAGE:$VERSION\`"
+            echo "- Digest: \`$DIGEST\`"
+            echo ""
+            echo "Verify it yourself:"
+            echo '```bash'
+            echo "cosign verify $IMAGE@$DIGEST \\"
+            echo "  --certificate-identity $IDENTITY \\"
+            echo "  --certificate-oidc-issuer https://token.actions.githubusercontent.com"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
