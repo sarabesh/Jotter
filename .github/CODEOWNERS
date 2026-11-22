@@ -6,7 +6,7 @@
 *                  @sarabesh
 
 # Extra-sensitive: CI, acceptance tests, tool config.
-# The coding agent must never change these without the maintainer's approval.
+# Changes to these always need the maintainer's approval.
 /.github/          @sarabesh
 /tests/acceptance/ @sarabesh
 /pyproject.toml    @sarabesh
