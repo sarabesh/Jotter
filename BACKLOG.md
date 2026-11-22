@@ -1,6 +1,6 @@
 # Backlog
 
-Future tickets for the agent (become GitHub issues later). Each gets hidden acceptance tests when it's used as a task.
+Future tickets (become GitHub issues later).
 
 ## 🟢 Easy
 | ID | Ticket |

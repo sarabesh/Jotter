@@ -1,6 +1,6 @@
 # jotter
 
-A tiny web app for capturing ideas: jot one down, add details and tags, come back to it later. It's the target app the `cda` coding agent works on; features are added from [BACKLOG.md](BACKLOG.md).
+A tiny web app for capturing ideas: jot one down, add details and tags, come back to it later. Planned features are in [BACKLOG.md](BACKLOG.md).
 
 ## Pages
 | Page | What |
@@ -45,6 +45,7 @@ uv run pytest && uv run ruff check . && uv run ruff format --check . && uv run m
 1. **release-please** reads the [Conventional Commit](https://www.conventionalcommits.org/) messages since the last release and keeps one open **release PR** (version bump in `pyproject.toml`, `uv.lock`, `jotter/__init__.py`, plus `CHANGELOG.md`).
 2. **Merging the release PR** tags `vX.Y.Z`, creates a GitHub Release and publishes the image:
    build → trivy gate (HIGH/CRITICAL) → push `ghcr.io/sarabesh/jotter:X.Y.Z` → cosign keyless signature → CycloneDX SBOM attestation → verify → SBOM attached to the release.
+3. **deploy-staging** clones [jotter-deploy](https://github.com/sarabesh/jotter-deploy), sets `overlays/staging` to `X.Y.Z`, commits `deploy(staging): jotter X.Y.Z` and pushes to its `main` (SSH deploy key, secret `JOTTER_DEPLOY_KEY`). Argo CD then deploys staging. Prod stays a human PR in jotter-deploy.
 
 | PR title (squash merge) | Release |
 |---|---|

@@ -4,6 +4,8 @@
 #   2. When you merge that release PR, release-please tags vX.Y.Z and creates a GitHub Release,
 #      and the publish job runs: build -> trivy gate -> push to GHCR -> cosign keyless sign
 #      -> SBOM attestation -> verify -> SBOM attached to the GitHub Release.
+#   3. deploy-staging commits the new version to jotter-deploy (overlays/staging);
+#      Argo CD sees the commit and deploys staging. Prod = a human PR in jotter-deploy.
 # Commits that bump the version: feat: (minor while < 1.0), fix: / perf: / deps: (patch),
 # feat!: or "BREAKING CHANGE:" (minor while < 1.0). ci:/docs:/chore:/test: never release.
 name: release
@@ -38,8 +40,8 @@ jobs:
           # Config: release-please-config.json + .release-please-manifest.json (current version).
           # A PR opened with the default GITHUB_TOKEN does not trigger other workflows, so
           # pr-gates won't start on the release PR by itself. Either press "Run workflow" on
-          # pr-gates for the release-please branch, or add a fine-grained PAT (or, later, the
-          # cda-bot app token) as the RELEASE_PLEASE_TOKEN secret.
+          # pr-gates for the release-please branch, or add a fine-grained PAT (or a
+          # GitHub App token) as the RELEASE_PLEASE_TOKEN secret.
           token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
 
   publish:
@@ -164,3 +166,47 @@ jobs:
             echo "  --certificate-oidc-issuer https://token.actions.githubusercontent.com"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # CD-1b: tell the GitOps repo about the new version -> Argo CD deploys staging.
+  # Clones jotter-deploy, sets overlays/staging newTag, commits, pushes to main.
+  # Prod is NOT touched here: it stays a human PR in jotter-deploy.
+  deploy-staging:
+    name: deploy staging (jotter-deploy)
+    needs: [release-please, publish] # only after the image is pushed, signed and verified
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {} # no GitHub token needed: the push uses the deploy key below
+    env:
+      VERSION: ${{ needs.release-please.outputs.version }}
+    steps:
+      # JOTTER_DEPLOY_KEY = private half of an SSH deploy key that has write access
+      # to sarabesh/jotter-deploy only (Settings -> Deploy keys there).
+      - uses: actions/checkout@v7
+        with:
+          repository: sarabesh/jotter-deploy
+          ref: main
+          ssh-key: ${{ secrets.JOTTER_DEPLOY_KEY }}
+
+      # kustomize (preinstalled on the runner) edits the images: entry as YAML, not as text.
+      - name: Set staging image tag
+        working-directory: overlays/staging
+        run: |
+          kustomize edit set image "ghcr.io/sarabesh/jotter:${VERSION}"
+          # prove the final rendered YAML really runs the new image
+          kustomize build . | grep -q "image: ghcr.io/sarabesh/jotter:${VERSION}" \
+            || { echo "staging does not render jotter:${VERSION}"; exit 1; }
+          git diff
+
+      - name: Commit and push to jotter-deploy main
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if git diff --quiet; then
+            echo "staging already runs ${VERSION}; nothing to do"; exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "deploy(staging): jotter ${VERSION}" -m "Released by ${RUN_URL}"
+          # someone may have pushed meanwhile: rebase once and retry
+          git push origin HEAD:main || { git pull --rebase origin main && git push origin HEAD:main; }
+          echo "Pushed: jotter ${VERSION} -> staging. Argo CD syncs it within ~3 min." >> "$GITHUB_STEP_SUMMARY"
