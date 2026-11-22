@@ -6,7 +6,7 @@ Future tickets (become GitHub issues later).
 | ID | Ticket |
 |---|---|
 | ~~J-1~~ | ~~Add `GET /health` returning `{"status": "ok"}` (for Docker/k8s health checks)~~ — done by hand (2026-11-21), first release through CD-0 |
-| J-2 | Clean up tags: trim, lowercase, remove duplicates (`"App, app ,"` → `["app"]`) |
+| ~~J-2~~ | ~~Clean up tags: trim, lowercase, remove duplicates (`"App, app ,"` → `["app"]`)~~ — done (2026-11-22), first release auto-deployed to staging |
 | J-3 | Add `updated_at`; show "edited …" on the idea page |
 | J-4 | Show relative dates ("3 days ago") with the full date on hover |
 

@@ -21,8 +21,9 @@ def nice_date(iso: str) -> str:
 
 
 def parse_tags(raw: str) -> list[str]:
-    """'work, app ,,fun' -> ['work', 'app', 'fun']."""
-    return [t.strip() for t in raw.split(",") if t.strip()]
+    """'Work, app ,,WORK, fun' -> ['work', 'app', 'fun']: trimmed, lowercase, no duplicates."""
+    tags = (t.strip().lower() for t in raw.split(","))
+    return list(dict.fromkeys(t for t in tags if t))  # dict keeps first-seen order
 
 
 def build_web_router(store: IdeaStore) -> APIRouter:
